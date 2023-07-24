@@ -1,0 +1,6 @@
+accelerate
+transformers
+datasets
+evaluate
+tqdm
+psutil
