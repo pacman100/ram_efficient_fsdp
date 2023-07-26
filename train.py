@@ -30,7 +30,7 @@ from transformers import (
     AutoTokenizer,
     get_linear_schedule_with_warmup,
     set_seed,
-    load_model_from_pretrained_only_on_rank0,
+    load_pretrained_model_only_on_rank0,
 )
 from typing import Set
 import collections
@@ -227,7 +227,7 @@ def training_function(config, args):
     # loading the model only on rank 0
     with TorchTracemalloc() as tracemalloc:
         if args.ram_efficient:
-            model = load_model_from_pretrained_only_on_rank0(
+            model = load_pretrained_model_only_on_rank0(
                 AutoModelForSequenceClassification, AutoConfig, args.model_name_or_path
             )
         else:
