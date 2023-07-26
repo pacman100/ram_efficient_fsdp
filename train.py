@@ -225,10 +225,10 @@ def training_function(config, args):
 
     # Instantiate the model (we build the model here so that the seed also control new weights initialization)
     # loading the model only on rank 0
-    param_init_fn = None
+    param_init_fn = lambda x: x.to_empty(device=torch.cuda.current_device(), recurse=False)
     with TorchTracemalloc() as tracemalloc:
         if args.ram_efficient:
-            model, param_init_fn = load_model_from_pretrained_only_on_rank0(
+            model, _ = load_model_from_pretrained_only_on_rank0(
                 AutoModelForSequenceClassification, AutoConfig, args.model_name_or_path
             )
         else:
