@@ -251,12 +251,23 @@ def training_function(config, args):
     # Instantiate the model (we build the model here so that the seed also control new weights initialization)
     # loading the model only on rank 0
     param_init_fn = None
-    if args.ram_efficient:
-        model, param_init_fn = load_model_from_pretrained_only_on_rank0(
-            accelerator, AutoModelForSequenceClassification, args.model_name_or_path
-        )
-    else:
-        model = AutoModelForSequenceClassification.from_pretrained(args.model_name_or_path, return_dict=True)
+    with TorchTracemalloc() as tracemalloc:
+        if args.ram_efficient:
+            model, param_init_fn = load_model_from_pretrained_only_on_rank0(
+                accelerator, AutoModelForSequenceClassification, args.model_name_or_path
+            )
+        else:
+            model = AutoModelForSequenceClassification.from_pretrained(args.model_name_or_path, return_dict=True)
+    print(f"{accelerator.process_index=} CPU Memory before entering the train : {b2mb(tracemalloc.cpu_begin)}")
+    print(
+        f"{accelerator.process_index=} CPU Memory consumed at the end of the loading (end-begin): {tracemalloc.cpu_used}"
+    )
+    print(
+        f"{accelerator.process_index=} CPU Peak Memory consumed during the loading (max-begin): {tracemalloc.cpu_peaked}"
+    )
+    print(
+        f"{accelerator.process_index=} CPU Total Peak Memory consumed during the loading (max): {tracemalloc.cpu_peaked + b2mb(tracemalloc.cpu_begin)}"
+    )
 
     # New Code #
     # For FSDP feature, it is highly recommended and efficient to prepare the model before creating optimizer
