@@ -338,8 +338,6 @@ def training_function(config, args):
                 outputs = model(**batch)
                 loss = outputs.loss
                 loss = loss / gradient_accumulation_steps
-                # print(loss)
-                # We keep track of the loss at each epoch
                 if args.with_tracking:
                     total_loss += loss.detach().float()
                 accelerator.backward(loss)
@@ -347,7 +345,6 @@ def training_function(config, args):
                     optimizer.step()
                     lr_scheduler.step()
                     optimizer.zero_grad()
-                    # accelerator.print(lr_scheduler.get_lr())
                 #                     with FSDP.summon_full_params(model):
                 #                         print(f"{accelerator.process_index=} {model.classifier.weight=}")
 
@@ -369,11 +366,19 @@ def training_function(config, args):
                 tracemalloc.peaked + b2mb(tracemalloc.begin)
             )
         )
+        accelerator.print("CPU Memory before entering the train : {}".format(b2mb(tracemalloc.cpu_begin)))
+        accelerator.print("CPU Memory consumed at the end of the train (end-begin): {}".format(tracemalloc.cpu_used))
+        accelerator.print("CPU Peak Memory consumed during the train (max-begin): {}".format(tracemalloc.cpu_peaked))
+        accelerator.print(
+            "CPU Total Peak Memory consumed during the train (max): {}".format(
+                tracemalloc.cpu_peaked + b2mb(tracemalloc.cpu_begin)
+            )
+        )
         # Logging the peak memory usage of the GPU to the tracker
         if args.with_tracking:
             accelerator.log(
                 {
-                    "train_total_peak_memory": tracemalloc.peaked + b2mb(tracemalloc.begin),
+                    "train_gpu_total_peak_memory": tracemalloc.peaked + b2mb(tracemalloc.begin),
                 },
                 step=epoch,
             )
@@ -420,11 +425,19 @@ def training_function(config, args):
         accelerator.print(
             "Total Peak Memory consumed during the eval (max): {}".format(tracemalloc.peaked + b2mb(tracemalloc.begin))
         )
+        accelerator.print("CPU Memory before entering the train : {}".format(b2mb(tracemalloc.cpu_begin)))
+        accelerator.print("CPU Memory consumed at the end of the train (end-begin): {}".format(tracemalloc.cpu_used))
+        accelerator.print("CPU Peak Memory consumed during the train (max-begin): {}".format(tracemalloc.cpu_peaked))
+        accelerator.print(
+            "CPU Total Peak Memory consumed during the train (max): {}".format(
+                tracemalloc.cpu_peaked + b2mb(tracemalloc.cpu_begin)
+            )
+        )
         # Logging the peak memory usage of the GPU to the tracker
         if args.with_tracking:
             accelerator.log(
                 {
-                    "eval_total_peak_memory": tracemalloc.peaked + b2mb(tracemalloc.begin),
+                    "eval_gpu_total_peak_memory": tracemalloc.peaked + b2mb(tracemalloc.begin),
                 },
                 step=epoch,
             )
