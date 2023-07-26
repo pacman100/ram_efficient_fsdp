@@ -30,6 +30,7 @@ from transformers import (
     AutoTokenizer,
     get_linear_schedule_with_warmup,
     set_seed,
+    load_model_from_pretrained_only_on_rank0,
 )
 from typing import Set
 import collections
@@ -129,44 +130,18 @@ if os.environ.get("TESTING_MOCKED_DATALOADERS", None) == "1":
     get_dataloaders = mocked_dataloaders  # noqa: F811
 
 
-def load_model_from_pretrained_only_on_rank0(accelerator, cls, model_name_or_path):
-
-    if accelerator.is_main_process:
-        model = cls.from_pretrained(model_name_or_path, return_dict=True)
-        param_init_fn = None
-    else:
-        with torch.device("meta"):
-            config = AutoConfig.from_pretrained(model_name_or_path)
-            model = cls.from_config(config)
-        param_init_fn = lambda x: x.to_empty(device=torch.cuda.current_device(), recurse=False)
-    model.train()
-    return model, param_init_fn
-
-
 def training_function(config, args):
     # For testing only
     if os.environ.get("TESTING_MOCKED_DATALOADERS", None) == "1":
         config["num_epochs"] = 2
 
-    # New Code #
-    # Pass the advanced FSDP settings not part of the accelerate config by creating fsdp_plugin
-    fsdp_plugin = FullyShardedDataParallelPlugin(
-        use_orig_params=True,
-        forward_prefetch=False,
-        sync_module_states=True,
-    )
-
     # Initialize accelerator
     if args.with_tracking:
         accelerator = Accelerator(
-            cpu=args.cpu,
-            mixed_precision=args.mixed_precision,
-            log_with="wandb",
-            project_dir=args.logging_dir,
-            fsdp_plugin=fsdp_plugin,
+            cpu=args.cpu, mixed_precision=args.mixed_precision, log_with="wandb", project_dir=args.logging_dir
         )
     else:
-        accelerator = Accelerator(fsdp_plugin=fsdp_plugin)
+        accelerator = Accelerator()
     accelerator.print(accelerator.distributed_type)
 
     if hasattr(args.checkpointing_steps, "isdigit"):
@@ -254,7 +229,7 @@ def training_function(config, args):
     with TorchTracemalloc() as tracemalloc:
         if args.ram_efficient:
             model, param_init_fn = load_model_from_pretrained_only_on_rank0(
-                accelerator, AutoModelForSequenceClassification, args.model_name_or_path
+                AutoModelForSequenceClassification, AutoConfig, args.model_name_or_path
             )
         else:
             model = AutoModelForSequenceClassification.from_pretrained(args.model_name_or_path, return_dict=True)
