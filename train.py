@@ -225,10 +225,9 @@ def training_function(config, args):
 
     # Instantiate the model (we build the model here so that the seed also control new weights initialization)
     # loading the model only on rank 0
-    param_init_fn = lambda x: x.to_empty(device=torch.cuda.current_device(), recurse=False)
     with TorchTracemalloc() as tracemalloc:
         if args.ram_efficient:
-            model, _ = load_model_from_pretrained_only_on_rank0(
+            model = load_model_from_pretrained_only_on_rank0(
                 AutoModelForSequenceClassification, AutoConfig, args.model_name_or_path
             )
         else:
@@ -248,7 +247,6 @@ def training_function(config, args):
     # For FSDP feature, it is highly recommended and efficient to prepare the model before creating optimizer
 
     # first, provide the `param_init_fn` for fsdp_config
-    accelerator.state.fsdp_plugin.param_init_fn = param_init_fn
     print(f"{accelerator.process_index=} {model.bert.pooler.dense.weight=}")
     print(f"{accelerator.process_index=} {model.classifier.weight=}")
     model = accelerator.prepare(model)
